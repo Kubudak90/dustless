@@ -3,6 +3,7 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import { registry } from "../providers/index.js";
 import type { QuoteResponse, Quote } from "@dustless/shared";
 import { NoRoutesFoundError } from "@dustless/shared";
+import { deduplicateRequest, createDeduplicationKey } from "../services/deduplication.js";
 
 const QuoteRequestSchema = z.object({
   fromChainId: z.number().int().positive(),
@@ -24,41 +25,52 @@ export async function quoteHandler(
 ): Promise<QuoteResponse> {
   const body = QuoteRequestSchema.parse(req.body);
 
-  // Get all registered providers
-  const providers = registry.all();
+  // Create deduplication key
+  const dedupKey = createDeduplicationKey("quote", {
+    fromChainId: body.fromChainId,
+    toChainId: body.toChainId,
+    amountWei: body.amountWei,
+    fromAddress: body.fromAddress,
+  });
 
-  if (providers.length === 0) {
-    return reply.status(500).send({
-      error: "No bridge providers configured",
-    } as any);
-  }
+  // Deduplicate the request
+  const result = await deduplicateRequest(dedupKey, async () => {
+    // Get all registered providers
+    const providers = registry.all();
 
-  // Query all providers in parallel
-  const results = await Promise.allSettled(
-    providers.map((p) => p.quote(body))
-  );
-
-  // Flatten and filter successful quotes
-  const quotes: Quote[] = results.flatMap((result, i) => {
-    if (result.status === "fulfilled") {
-      return result.value;
+    if (providers.length === 0) {
+      throw new Error("No bridge providers configured");
     }
-    console.error(`Provider ${providers[i].name} failed:`, result.reason);
-    return [];
+
+    // Query all providers in parallel
+    const results = await Promise.allSettled(
+      providers.map((p) => p.quote(body))
+    );
+
+    // Flatten and filter successful quotes
+    const quotes: Quote[] = results.flatMap((result, i) => {
+      if (result.status === "fulfilled") {
+        return result.value;
+      }
+      console.error(`Provider ${providers[i].name} failed:`, result.reason);
+      return [];
+    });
+
+    if (quotes.length === 0) {
+      throw new NoRoutesFoundError(body.fromChainId, body.toChainId);
+    }
+
+    // Sort by best output (highest received amount first)
+    quotes.sort((a, b) => {
+      const aValue = BigInt(a.estimatedReceivedWei);
+      const bValue = BigInt(b.estimatedReceivedWei);
+      if (bValue > aValue) return 1;
+      if (bValue < aValue) return -1;
+      return 0;
+    });
+
+    return { quotes };
   });
 
-  if (quotes.length === 0) {
-    throw new NoRoutesFoundError(body.fromChainId, body.toChainId);
-  }
-
-  // Sort by best output (highest received amount first)
-  quotes.sort((a, b) => {
-    const aValue = BigInt(a.estimatedReceivedWei);
-    const bValue = BigInt(b.estimatedReceivedWei);
-    if (bValue > aValue) return 1;
-    if (bValue < aValue) return -1;
-    return 0;
-  });
-
-  return reply.send({ quotes });
+  return reply.send(result);
 }

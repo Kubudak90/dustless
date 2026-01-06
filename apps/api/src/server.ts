@@ -9,6 +9,9 @@ import { scanHandler, quoteHandler, buildHandler } from "./handlers/index.js";
 import { checkAllChainsHealth } from "./services/rpcHealth.js";
 import type { ServerToClientEvents, ClientToServerEvents } from "./socket.js";
 import { DustlessError } from "@dustless/shared";
+import { metrics } from "./services/metrics.js";
+import { getDeduplicationStats } from "./services/deduplication.js";
+import { priceOracle } from "./services/priceOracle.js";
 
 // Initialize providers (registers them in the registry)
 import "./providers/index.js";
@@ -108,6 +111,15 @@ app.get("/health/chains", async () => {
     healthy,
     total: chains.length,
     chains,
+  };
+});
+
+// Metrics endpoint
+app.get("/metrics", async () => {
+  return {
+    ...metrics.getAllMetrics(),
+    deduplication: getDeduplicationStats(),
+    priceOracle: priceOracle.getCacheStats(),
   };
 });
 
