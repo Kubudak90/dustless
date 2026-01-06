@@ -11,6 +11,20 @@ interface PriceCache {
   timestamp: number;
 }
 
+// CoinGecko platform IDs for popular tokens per chain
+const TOKEN_COINGECKO_IDS: Record<string, string> = {
+  // Stablecoins (use $1 for fast lookup)
+  "USDC": "usd-coin",
+  "USDT": "tether",
+  "DAI": "dai",
+  "USDB": "usdb", // Blast stablecoin
+  "USDbC": "bridged-usd-coin-base", // Bridged USDC on Base
+
+  // Native tokens
+  "ETH": "ethereum",
+  "BLAST": "blast",
+};
+
 /**
  * Price Oracle for fetching and caching cryptocurrency prices
  * Uses CoinGecko API with fallback to public endpoint
@@ -23,6 +37,26 @@ export class PriceOracle {
    */
   async getETHPrice(): Promise<number> {
     return this.getPrice("ethereum");
+  }
+
+  /**
+   * Get price for a token symbol (USDC, ETH, etc.)
+   * Returns $1 for stablecoins
+   */
+  async getTokenPrice(symbol: string, isStablecoin?: boolean): Promise<number> {
+    // Stablecoins are always $1
+    if (isStablecoin || ["USDC", "USDT", "DAI", "USDB", "USDbC"].includes(symbol)) {
+      return 1.0;
+    }
+
+    // Get CoinGecko ID for the symbol
+    const coinId = TOKEN_COINGECKO_IDS[symbol];
+    if (!coinId) {
+      console.warn(`No CoinGecko ID for token symbol: ${symbol}`);
+      return 0;
+    }
+
+    return this.getPrice(coinId);
   }
 
   /**
@@ -88,7 +122,7 @@ export class PriceOracle {
   }
 
   /**
-   * Calculate USD value from wei amount
+   * Calculate USD value from wei amount (ETH only)
    */
   async calculateUSDValue(weiAmount: string | bigint): Promise<number> {
     try {
@@ -99,6 +133,34 @@ export class PriceOracle {
     } catch (err) {
       console.error("Failed to calculate USD value:", err);
       return 0; // Return 0 on error rather than failing
+    }
+  }
+
+  /**
+   * Calculate USD value for any token (ETH or ERC-20)
+   * @param balance Raw balance in smallest unit
+   * @param decimals Token decimals (18 for ETH, 6 for USDC, etc.)
+   * @param symbol Token symbol (ETH, USDC, etc.)
+   * @param isStablecoin Whether token is a stablecoin
+   */
+  async calculateTokenUSDValue(
+    balance: string | bigint,
+    decimals: number,
+    symbol: string,
+    isStablecoin?: boolean
+  ): Promise<number> {
+    try {
+      const price = await this.getTokenPrice(symbol, isStablecoin);
+      const balanceBigInt = typeof balance === "string" ? BigInt(balance) : balance;
+
+      // Convert balance to float using decimals
+      const divisor = BigInt(10 ** decimals);
+      const tokenAmount = Number(balanceBigInt) / Number(divisor);
+
+      return tokenAmount * price;
+    } catch (err) {
+      console.error(`Failed to calculate USD value for ${symbol}:`, err);
+      return 0;
     }
   }
 

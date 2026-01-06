@@ -1,89 +1,96 @@
-import { isAddress, formatEther } from "viem";
-import { getPublicClient } from "./rpcHealth.js";
+import { isAddress, formatUnits } from "viem";
 import { getChainConfig } from "../config/chains.js";
 import type { BalanceResult, BalanceError, StuckAsset } from "@dustless/shared";
+import { getPopularTokens } from "@dustless/shared";
+import { scanTokenBalances, isBalanceStuck } from "./tokenBalances.js";
 
 /**
- * Get native ETH balance for an address on a specific chain
- */
-export async function getNativeBalance(
-  chainId: number,
-  address: string
-): Promise<BalanceResult> {
-  if (!isAddress(address)) {
-    throw new Error("Invalid address format");
-  }
-
-  const client = await getPublicClient(chainId);
-  const wei = await client.getBalance({ address: address as `0x${string}` });
-
-  return {
-    chainId,
-    symbol: "ETH",
-    wei: wei.toString(),
-    ok: true,
-  };
-}
-
-/**
- * Scan multiple chains for balances
+ * Scan multiple chains for native + ERC-20 token balances
+ * Returns all balances (ETH + popular tokens) for each chain
  */
 export async function scanBalances(
   address: string,
   chainIds: number[]
 ): Promise<Array<BalanceResult | BalanceError>> {
+  if (!isAddress(address)) {
+    throw new Error("Invalid address format");
+  }
+
+  // Scan all chains in parallel
   const results = await Promise.allSettled(
-    chainIds.map((chainId) => getNativeBalance(chainId, address))
+    chainIds.map(async (chainId) => {
+      try {
+        const popularTokens = getPopularTokens(chainId);
+        const balances = await scanTokenBalances(chainId, address, popularTokens);
+        return balances;
+      } catch (error) {
+        const err: BalanceError = {
+          chainId,
+          ok: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+        return [err];
+      }
+    })
   );
 
-  return results.map((result, i) => {
+  // Flatten results
+  const allBalances: Array<BalanceResult | BalanceError> = [];
+  results.forEach((result, i) => {
     if (result.status === "fulfilled") {
-      return result.value;
+      allBalances.push(...result.value);
+    } else {
+      allBalances.push({
+        chainId: chainIds[i],
+        ok: false,
+        error: result.reason?.message ?? "Unknown error",
+      });
     }
-    return {
-      chainId: chainIds[i],
-      ok: false as const,
-      error: result.reason?.message ?? "Unknown error",
-    };
   });
+
+  return allBalances;
 }
 
 /**
  * Identify "stuck" assets based on heuristics:
- * - Balance > 0
- * - Chain has "abandoned" tag OR low activity
- * 
- * MVP: Just check if balance > dust threshold
+ * - Balance > minimum threshold
+ * - Chain has "abandoned" tag OR is not a target chain
+ * - Worth rescuing (> $1 USD or > 0.001 tokens)
  */
-const DUST_THRESHOLD_WEI = BigInt(1e14); // 0.0001 ETH
-
 export function identifyStuckAssets(
-  balances: Array<BalanceResult | BalanceError>
+  balances: Array<BalanceResult | BalanceError>,
+  usdValues?: Map<string, number>
 ): StuckAsset[] {
   const stuck: StuckAsset[] = [];
 
   for (const balance of balances) {
     if (!balance.ok) continue;
 
-    const wei = BigInt(balance.wei);
-    if (wei < DUST_THRESHOLD_WEI) continue;
+    const balanceKey = `${balance.chainId}:${balance.tokenAddress}`;
+    const usdValue = usdValues?.get(balanceKey);
+
+    // Check if balance is worth rescuing
+    if (!isBalanceStuck(balance.balance, balance.decimals, usdValue)) {
+      continue;
+    }
 
     const chain = getChainConfig(balance.chainId);
 
-    // MVP: Consider everything above dust threshold as "potentially stuck"
-    // In production, we'd check chain activity, bridge liquidity, etc.
+    // Identify abandoned or non-target chains
     const isAbandoned = chain.tags.includes("abandoned");
-    
-    // For MVP, show all non-target chains as potential recovery candidates
     const isNonTarget = !chain.tags.includes("target");
 
+    // Only include balances on chains that are worth consolidating from
     if (isAbandoned || isNonTarget) {
       stuck.push({
         chainId: balance.chainId,
         chainName: chain.name,
-        symbol: "ETH",
-        wei: balance.wei,
-        // TODO: Add USD value via price oracle
+        tokenAddress: balance.tokenAddress,
+        symbol: balance.symbol,
+        name: balance.name,
+        decimals: balance.decimals,
+        balance: balance.balance,
+        usdValue,
       });
     }
   }
@@ -94,12 +101,12 @@ export function identifyStuckAssets(
 /**
  * Format balance for display
  */
-export function formatBalance(wei: string): string {
-  const value = BigInt(wei);
-  const eth = formatEther(value);
-  
+export function formatBalance(balance: string, decimals: number): string {
+  const value = BigInt(balance);
+  const formatted = formatUnits(value, decimals);
+
   // Smart formatting
-  const num = parseFloat(eth);
+  const num = parseFloat(formatted);
   if (num === 0) return "0";
   if (num < 0.0001) return "<0.0001";
   if (num < 1) return num.toFixed(4);

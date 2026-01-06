@@ -26,6 +26,203 @@ export interface ChainConfig {
 // Native ETH placeholder address used by bridge aggregators
 export const NATIVE_TOKEN_ADDRESS = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" as const;
 
+/**
+ * ERC-20 Token Configuration
+ */
+export interface TokenConfig {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  chainId: number;
+  logoUrl?: string;
+  isStablecoin?: boolean;
+}
+
+/**
+ * Popular ERC-20 tokens to scan on each chain
+ * Focused on stablecoins and high-value tokens commonly left behind
+ */
+export const POPULAR_TOKENS: Record<number, TokenConfig[]> = {
+  // Base
+  8453: [
+    {
+      address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      chainId: 8453,
+      isStablecoin: true,
+    },
+    {
+      address: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb",
+      symbol: "DAI",
+      name: "Dai Stablecoin",
+      decimals: 18,
+      chainId: 8453,
+      isStablecoin: true,
+    },
+    {
+      address: "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA",
+      symbol: "USDbC",
+      name: "USD Base Coin",
+      decimals: 6,
+      chainId: 8453,
+      isStablecoin: true,
+    },
+  ],
+  // Arbitrum One
+  42161: [
+    {
+      address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      chainId: 42161,
+      isStablecoin: true,
+    },
+    {
+      address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+      symbol: "USDT",
+      name: "Tether USD",
+      decimals: 6,
+      chainId: 42161,
+      isStablecoin: true,
+    },
+    {
+      address: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+      symbol: "DAI",
+      name: "Dai Stablecoin",
+      decimals: 18,
+      chainId: 42161,
+      isStablecoin: true,
+    },
+  ],
+  // Blast
+  81457: [
+    {
+      address: "0x4300000000000000000000000000000000000003",
+      symbol: "USDB",
+      name: "USDB",
+      decimals: 18,
+      chainId: 81457,
+      isStablecoin: true,
+    },
+    {
+      address: "0x4300000000000000000000000000000000000004",
+      symbol: "BLAST",
+      name: "Blast",
+      decimals: 18,
+      chainId: 81457,
+    },
+  ],
+  // Mode
+  34443: [
+    {
+      address: "0xd988097fb8612cc24eeC14542bC03424c656005f",
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      chainId: 34443,
+      isStablecoin: true,
+    },
+    {
+      address: "0xf0F161fDA2712DB8b566946122a5af183995e2eD",
+      symbol: "USDT",
+      name: "Tether USD",
+      decimals: 6,
+      chainId: 34443,
+      isStablecoin: true,
+    },
+  ],
+  // Optimism
+  10: [
+    {
+      address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      chainId: 10,
+      isStablecoin: true,
+    },
+    {
+      address: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58",
+      symbol: "USDT",
+      name: "Tether USD",
+      decimals: 6,
+      chainId: 10,
+      isStablecoin: true,
+    },
+    {
+      address: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+      symbol: "DAI",
+      name: "Dai Stablecoin",
+      decimals: 18,
+      chainId: 10,
+      isStablecoin: true,
+    },
+  ],
+  // Linea
+  59144: [
+    {
+      address: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff",
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      chainId: 59144,
+      isStablecoin: true,
+    },
+    {
+      address: "0xA219439258ca9da29E9Cc4cE5596924745e12B93",
+      symbol: "USDT",
+      name: "Tether USD",
+      decimals: 6,
+      chainId: 59144,
+      isStablecoin: true,
+    },
+  ],
+  // zkSync Era
+  324: [
+    {
+      address: "0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4",
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      chainId: 324,
+      isStablecoin: true,
+    },
+    {
+      address: "0x493257fD37EDB34451f62EDf8D2a0C418852bA4C",
+      symbol: "USDT",
+      name: "Tether USD",
+      decimals: 6,
+      chainId: 324,
+      isStablecoin: true,
+    },
+  ],
+  // Scroll
+  534352: [
+    {
+      address: "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4",
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      chainId: 534352,
+      isStablecoin: true,
+    },
+    {
+      address: "0xf55BEC9cafDbE8730f096Aa55dad6D22d44099Df",
+      symbol: "USDT",
+      name: "Tether USD",
+      decimals: 6,
+      chainId: 534352,
+      isStablecoin: true,
+    },
+  ],
+  // Zora (mainly NFT chain, minimal DeFi)
+  7777777: [],
+};
+
 export const CHAINS: Record<number, ChainConfig> = {
   // === Target Chains (consolidation destinations) ===
   8453: {
@@ -178,4 +375,12 @@ export function getAllChainIds(): number[] {
 
 export function getSourceChainIds(): number[] {
   return getSourceChains().map((c) => c.id);
+}
+
+export function getPopularTokens(chainId: number): TokenConfig[] {
+  return POPULAR_TOKENS[chainId] ?? [];
+}
+
+export function getAllPopularTokens(): TokenConfig[] {
+  return Object.values(POPULAR_TOKENS).flat();
 }

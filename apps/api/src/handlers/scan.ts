@@ -14,9 +14,9 @@ const ScanRequestSchema = z.object({
 
 /**
  * POST /scan
- * 
- * Scans chains for native ETH balances and identifies "stuck" assets
- * that could be recovered (bridged) to a target chain.
+ *
+ * Scans chains for native ETH + ERC-20 token balances and identifies "stuck" assets
+ * that could be recovered (swapped + bridged) to a target chain.
  */
 export async function scanHandler(
   req: FastifyRequest,
@@ -40,32 +40,42 @@ export async function scanHandler(
 
   // Deduplicate the request
   const result = await deduplicateRequest(dedupKey, async () => {
-    // Scan all chains in parallel
+    // Scan all chains in parallel for native + ERC-20 balances
     const balances = await scanBalances(body.address, chainIds);
 
-    // Identify stuck assets (non-target chains with balance > dust)
-    const stuck = identifyStuckAssets(balances);
+    // Calculate USD values for all balances
+    const usdValuesMap = new Map<string, number>();
+    await Promise.all(
+      balances.map(async (balance) => {
+        if (!balance.ok) return;
 
-    // Calculate USD values for stuck assets
-    const stuckWithPrices = await Promise.all(
-      stuck.map(async (asset) => {
-        const usdValue = await priceOracle.calculateUSDValue(asset.wei);
-        return {
-          ...asset,
-          usdValue,
-        };
+        const balanceKey = `${balance.chainId}:${balance.tokenAddress}`;
+        try {
+          const usdValue = await priceOracle.calculateTokenUSDValue(
+            balance.balance,
+            balance.decimals,
+            balance.symbol,
+            balance.symbol.includes("USD") // Simple check for stablecoins
+          );
+          usdValuesMap.set(balanceKey, usdValue);
+        } catch (err) {
+          console.error(`Failed to calculate USD for ${balance.symbol}:`, err);
+        }
       })
     );
 
+    // Identify stuck assets (non-target chains with balance > dust threshold)
+    const stuck = identifyStuckAssets(balances, usdValuesMap);
+
     // Calculate total stuck USD value
-    const totalStuckUsd = stuckWithPrices.reduce(
+    const totalStuckUsd = stuck.reduce(
       (sum, asset) => sum + (asset.usdValue || 0),
       0
     );
 
     return {
       balances,
-      stuck: stuckWithPrices,
+      stuck,
       totalStuckUsd,
     };
   });

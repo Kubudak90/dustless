@@ -12,13 +12,17 @@ export interface ScanRequest {
 
 export interface BalanceResult {
   chainId: number;
-  symbol: "ETH";
-  wei: string;
+  tokenAddress: string; // Native ETH uses NATIVE_TOKEN_ADDRESS
+  symbol: string;
+  name: string;
+  decimals: number;
+  balance: string; // Raw balance in smallest unit (wei for ETH, smallest unit for ERC-20)
   ok: true;
 }
 
 export interface BalanceError {
   chainId: number;
+  tokenAddress?: string;
   ok: false;
   error: string;
 }
@@ -28,9 +32,13 @@ export type BalanceResponse = BalanceResult | BalanceError;
 export interface StuckAsset {
   chainId: number;
   chainName: string;
-  symbol: "ETH";
-  wei: string;
+  tokenAddress: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  balance: string; // Raw balance in smallest unit
   usdValue?: number;
+  isStablecoin?: boolean;
 }
 
 export interface ScanResponse {
