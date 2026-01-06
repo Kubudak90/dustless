@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { ConnectButton, ChainSelector, StuckAssetCard, LiFiBridgeWidget } from "@/components";
 import { useScan } from "@/hooks/useRecovery";
@@ -16,10 +16,35 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabType>("scan");
   const [targetChainId, setTargetChainId] = useState(8453); // Base
   const { mutate: scan, data: scanResult, isPending: isScanning, reset } = useScan();
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleScan = () => {
     scan(getSourceChainIds());
   };
+
+  // Prevent hydration mismatch - render loading state on server
+  if (!mounted) {
+    return (
+      <main className="min-h-screen">
+        <header className="border-b border-zinc-900">
+          <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-6 h-6 text-brand-500" />
+              <span className="text-xl font-semibold">Dustless</span>
+            </div>
+          </div>
+        </header>
+        <section className="max-w-5xl mx-auto px-6 py-16 text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-brand-500" />
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen">
