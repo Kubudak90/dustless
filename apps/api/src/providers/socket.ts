@@ -1,11 +1,12 @@
 import { request } from "undici";
 import type { BridgeProvider } from "./BridgeProvider.js";
 import type { Quote, QuoteRequest, BuildRequest, TxStep } from "@dustless/shared";
-import { NATIVE_TOKEN_ADDRESS } from "@dustless/shared";
+import { NATIVE_TOKEN_ADDRESS, TimeoutError, ProviderError } from "@dustless/shared";
 import { env } from "../config/env.js";
 
 const SOCKET_BASE_URL = "https://api.socket.tech/v2";
 const SOCKET_API_KEY = env.SOCKET_API_KEY;
+const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 /**
  * Socket (Bungee) Bridge Provider
@@ -52,6 +53,9 @@ export class SocketProvider implements BridgeProvider {
       const response = await request(url.toString(), {
         method: "GET",
         headers: this.headers,
+        headersTimeout: REQUEST_TIMEOUT,
+        bodyTimeout: REQUEST_TIMEOUT,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
       });
 
       if (response.statusCode !== 200) {
@@ -97,11 +101,14 @@ export class SocketProvider implements BridgeProvider {
         body: JSON.stringify({
           route: routeData.route,
         }),
+        headersTimeout: REQUEST_TIMEOUT,
+        bodyTimeout: REQUEST_TIMEOUT,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
       });
 
       if (response.statusCode !== 200) {
         const body = await response.body.text();
-        throw new Error(`Socket build failed: ${response.statusCode} - ${body}`);
+        throw new ProviderError("socket", `Build failed: ${body}`, response.statusCode);
       }
 
       const json = await response.body.json() as SocketBuildResponse;

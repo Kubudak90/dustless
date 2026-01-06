@@ -1,10 +1,11 @@
 import { request } from "undici";
 import type { BridgeProvider } from "./BridgeProvider.js";
 import type { Quote, QuoteRequest, BuildRequest, TxStep } from "@dustless/shared";
-import { NATIVE_TOKEN_ADDRESS } from "@dustless/shared";
+import { NATIVE_TOKEN_ADDRESS, TimeoutError, ProviderError } from "@dustless/shared";
 import { env } from "../config/env.js";
 
 const LIFI_BASE_URL = env.LIFI_BASE_URL ?? "https://li.quest/v1";
+const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 /**
  * LI.FI Bridge Provider
@@ -40,6 +41,9 @@ export class LiFiProvider implements BridgeProvider {
         headers: {
           "Accept": "application/json",
         },
+        headersTimeout: REQUEST_TIMEOUT,
+        bodyTimeout: REQUEST_TIMEOUT,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
       });
 
       if (response.statusCode !== 200) {
@@ -95,10 +99,13 @@ export class LiFiProvider implements BridgeProvider {
       const response = await request(url.toString(), {
         method: "GET",
         headers: { "Accept": "application/json" },
+        headersTimeout: REQUEST_TIMEOUT,
+        bodyTimeout: REQUEST_TIMEOUT,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
       });
 
       if (response.statusCode !== 200) {
-        throw new Error(`LI.FI build failed: ${response.statusCode}`);
+        throw new ProviderError("lifi", `Build failed with status ${response.statusCode}`, response.statusCode);
       }
 
       const json = await response.body.json() as LiFiQuoteResponse;

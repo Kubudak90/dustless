@@ -1,11 +1,14 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
+import helmet from "@fastify/helmet";
+import compress from "@fastify/compress";
 import { Server } from "socket.io";
-import { env, isDevelopment } from "./config/env.js";
+import { env, isDevelopment, isProduction } from "./config/env.js";
 import { scanHandler, quoteHandler, buildHandler } from "./handlers/index.js";
 import { checkAllChainsHealth } from "./services/rpcHealth.js";
 import type { ServerToClientEvents, ClientToServerEvents } from "./socket.js";
+import { DustlessError } from "@dustless/shared";
 
 // Initialize providers (registers them in the registry)
 import "./providers/index.js";
@@ -27,6 +30,47 @@ await app.register(cors, {
   origin: corsOrigins,
   methods: ["GET", "POST", "OPTIONS"],
   credentials: true,
+});
+
+// Register Security Headers (Helmet)
+await app.register(helmet, {
+  // Disable CSP in development for easier debugging
+  contentSecurityPolicy: isProduction ? {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  } : false,
+  // HSTS - Force HTTPS in production
+  hsts: isProduction ? {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true,
+  } : false,
+  // Prevent clickjacking
+  frameguard: {
+    action: 'deny',
+  },
+  // Prevent MIME type sniffing
+  noSniff: true,
+  // Disable X-Powered-By header
+  hidePoweredBy: true,
+});
+
+// Register Response Compression
+await app.register(compress, {
+  global: true,
+  threshold: 1024, // Only compress responses > 1KB
+  encodings: ['gzip', 'deflate'],
+  // Don't compress already compressed formats
+  customTypes: /^text\/|application\/json|application\/javascript/,
 });
 
 // Register Rate Limiting
@@ -96,21 +140,49 @@ app.post("/build", {
 }, buildHandler);
 
 // Error handler
-app.setErrorHandler((error, _request, reply) => {
-  app.log.error(error);
+app.setErrorHandler((error, request, reply) => {
+  // Log error (but don't log validation errors at error level)
+  if (error.name === "ZodError") {
+    app.log.warn({ error, path: request.url }, 'Validation error');
+  } else if (error instanceof DustlessError) {
+    app.log.warn({ error: error.toJSON(), path: request.url }, 'Application error');
+  } else {
+    app.log.error({ error, path: request.url }, 'Unexpected error');
+  }
 
   // Zod validation errors
   if (error.name === "ZodError") {
     return reply.status(400).send({
-      error: "Validation error",
+      error: "VALIDATION_ERROR",
+      message: "Request validation failed",
       details: (error as any).issues,
     });
   }
 
-  // Generic error
-  return reply.status(error.statusCode ?? 500).send({
-    error: error.message ?? "Internal server error",
-  });
+  // Custom Dustless errors
+  if (error instanceof DustlessError) {
+    return reply.status(error.statusCode).send(error.toJSON());
+  }
+
+  // Rate limit errors (from @fastify/rate-limit)
+  if (error.statusCode === 429) {
+    return reply.status(429).send({
+      error: "RATE_LIMIT_EXCEEDED",
+      message: error.message,
+    });
+  }
+
+  // Generic error - don't expose internal details in production
+  const errorResponse: any = {
+    error: isProduction ? "INTERNAL_SERVER_ERROR" : error.message ?? "Internal server error",
+  };
+
+  // Include stack trace in development
+  if (isDevelopment && error.stack) {
+    errorResponse.stack = error.stack;
+  }
+
+  return reply.status(error.statusCode ?? 500).send(errorResponse);
 });
 
 // Start server with Socket.IO

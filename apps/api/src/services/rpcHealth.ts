@@ -1,9 +1,11 @@
 import { createPublicClient, http, type PublicClient } from "viem";
 import { getChainConfig } from "../config/chains.js";
+import { RPCError } from "@dustless/shared";
 
 // Cache healthy clients per chain
 const clientCache = new Map<number, { client: PublicClient; url: string; expiry: number }>();
 const CACHE_TTL_MS = 60_000; // 1 minute
+const RPC_TIMEOUT_MS = 30_000; // 30 seconds
 
 /**
  * Get a healthy RPC URL for a chain
@@ -32,7 +34,11 @@ export async function pickHealthyRpc(chainId: number): Promise<string> {
             default: { http: [url] },
           },
         },
-        transport: http(url, { timeout: 5_000 }),
+        transport: http(url, {
+          timeout: RPC_TIMEOUT_MS,
+          retryCount: 2,
+          retryDelay: 1000,
+        }),
       });
 
       // Quick health check
@@ -52,7 +58,11 @@ export async function pickHealthyRpc(chainId: number): Promise<string> {
     }
   }
 
-  throw new Error(`No healthy RPC available for chain ${chainId} (${chain.name})`);
+  throw new RPCError(
+    chainId,
+    `No healthy RPC available for chain ${chain.name}`,
+    chain.rpcUrls[0]
+  );
 }
 
 /**
