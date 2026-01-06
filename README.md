@@ -8,13 +8,18 @@ Dustless scans your wallet for ETH stuck on "abandoned" or low-activity L2s (Bla
 
 **No private keys required.** Everything happens through your wallet.
 
-## Features (MVP)
+## Features
 
 - ✅ Multi-chain balance scanning (Blast, Mode, Zora, Linea, zkSync, Scroll, etc.)
 - ✅ Bridge route aggregation (LI.FI + Socket)
+- ✅ DEX aggregation for token swaps (Odos)
+- ✅ Token → ETH conversion on any supported chain
 - ✅ Best route selection by output amount
 - ✅ Step-by-step wallet execution
 - ✅ Non-custodial (backend never sees your keys)
+- ✅ USD value calculation for all assets
+- ✅ Request deduplication and metrics tracking
+- ✅ Production-ready security (rate limiting, timeouts, compression)
 
 ## Project Structure
 
@@ -110,14 +115,40 @@ Build transaction data for a selected quote.
 }
 ```
 
+### `POST /swap` (New!)
+
+Get swap quotes to convert tokens to ETH via Odos DEX aggregator.
+
+```json
+{
+  "chainId": 8453,
+  "fromToken": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "toToken": "0x0000000000000000000000000000000000000000",
+  "amount": "1000000",
+  "userAddress": "0x...",
+  "slippage": 3
+}
+```
+
+### `POST /swap/build` (New!)
+
+Build transaction data for a selected swap quote.
+
+```json
+{
+  "quote": { /* quote object from /swap */ },
+  "userAddress": "0x..."
+}
+```
+
 ## Architecture
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │   Frontend  │────▶│   Backend   │────▶│   LI.FI     │
 │  (Next.js)  │     │  (Fastify)  │     │   Socket    │
-└─────────────┘     └─────────────┘     └─────────────┘
-       │                   │
+└─────────────┘     └─────────────┘     │   Odos      │
+       │                   │             └─────────────┘
        │                   ▼
        │            ┌─────────────┐
        │            │    RPCs     │
@@ -133,8 +164,9 @@ Build transaction data for a selected quote.
 
 1. **Frontend** connects to user's wallet via wagmi
 2. **Backend** scans balances via viem RPC calls
-3. **Backend** fetches quotes from LI.FI and Socket
-4. **Frontend** executes transactions through user's wallet
+3. **Backend** fetches bridge quotes from LI.FI and Socket
+4. **Backend** fetches swap quotes from Odos for token → ETH conversion
+5. **Frontend** executes transactions through user's wallet
 
 ## Security Notes
 
@@ -143,14 +175,15 @@ Build transaction data for a selected quote.
 - No private keys ever touch the server
 - Always verify transaction details in your wallet before signing
 
-## What's Next (Post-MVP)
+## What's Next
 
-- [ ] ERC-20 token support
-- [ ] Price oracle integration (USD values)
+- [ ] ERC-20 token balance scanning (extend /scan)
 - [ ] Transaction simulation before execution
 - [ ] Smart account support (true one-click via batching)
 - [ ] Gas sponsorship for dust amounts
 - [ ] Scheduled recovery (set and forget)
+- [ ] Multi-hop routes (swap → bridge in single flow)
+- [ ] LP position unwinding
 
 ## Tech Stack
 
