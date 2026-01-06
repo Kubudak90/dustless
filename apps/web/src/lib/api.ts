@@ -5,6 +5,9 @@ import type {
   QuoteResponse,
   BuildRequest,
   BuildResponse,
+  SwapRequest,
+  SwapResponse,
+  SwapBuildRequest,
   ApiError,
 } from "@dustless/shared";
 
@@ -56,6 +59,24 @@ export const api = {
    */
   build: (req: BuildRequest) =>
     apiRequest<BuildResponse>("/build", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
+
+  /**
+   * Get swap quotes (token → ETH via Odos)
+   */
+  swap: (req: SwapRequest) =>
+    apiRequest<SwapResponse>("/swap", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
+
+  /**
+   * Build transaction for a swap quote
+   */
+  swapBuild: (req: SwapBuildRequest) =>
+    apiRequest<BuildResponse>("/swap/build", {
       method: "POST",
       body: JSON.stringify(req),
     }),

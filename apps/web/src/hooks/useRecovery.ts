@@ -3,8 +3,9 @@
 import { useMutation } from "@tanstack/react-query";
 import { useAccount, useSwitchChain, useSendTransaction, usePublicClient } from "wagmi";
 import { api } from "@/lib/api";
-import type { Quote, TxStep, StuckAsset } from "@dustless/shared";
+import type { Quote, TxStep, StuckAsset, SwapQuote } from "@dustless/shared";
 import { useState, useCallback } from "react";
+import { NATIVE_TOKEN_ADDRESS } from "@dustless/shared";
 
 /**
  * Hook for scanning wallet for stuck assets
@@ -52,7 +53,39 @@ export function useQuote() {
 }
 
 /**
+ * Hook for getting swap quotes (token → ETH)
+ */
+export function useSwap() {
+  const { address } = useAccount();
+
+  return useMutation({
+    mutationFn: async ({
+      chainId,
+      fromToken,
+      amount,
+      slippage,
+    }: {
+      chainId: number;
+      fromToken: string;
+      amount: string;
+      slippage?: number;
+    }) => {
+      if (!address) throw new Error("Wallet not connected");
+      return api.swap({
+        chainId,
+        fromToken,
+        toToken: NATIVE_TOKEN_ADDRESS,
+        amount,
+        userAddress: address,
+        slippage: slippage ?? 3,
+      });
+    },
+  });
+}
+
+/**
  * Hook for building and executing recovery transactions
+ * Supports both bridge quotes and swap quotes
  */
 export function useRecover() {
   const { address, chain } = useAccount();
@@ -67,7 +100,7 @@ export function useRecover() {
   const [error, setError] = useState<string>();
 
   const execute = useCallback(
-    async (quote: Quote) => {
+    async (quote: Quote | SwapQuote) => {
       if (!address) {
         setError("Wallet not connected");
         setStatus("error");
@@ -77,10 +110,18 @@ export function useRecover() {
       try {
         // Build transaction
         setStatus("building");
-        const { steps, warnings } = await api.build({
-          quote,
-          userAddress: address,
-        });
+
+        // Check if it's a swap quote or bridge quote
+        const isSwap = "pathId" in quote;
+        const { steps, warnings } = isSwap
+          ? await api.swapBuild({
+              quote: quote as SwapQuote,
+              userAddress: address,
+            })
+          : await api.build({
+              quote: quote as Quote,
+              userAddress: address,
+            });
 
         if (warnings?.length) {
           console.warn("Build warnings:", warnings);

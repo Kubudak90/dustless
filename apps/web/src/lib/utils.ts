@@ -1,5 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
-import { formatEther } from "viem";
+import { formatEther, formatUnits } from "viem";
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -9,13 +9,30 @@ export function formatETH(wei: string | bigint): string {
   const value = typeof wei === "string" ? BigInt(wei) : wei;
   const eth = formatEther(value);
   const num = parseFloat(eth);
-  
+
   if (num === 0) return "0";
   if (num < 0.0001) return "<0.0001";
   if (num < 0.01) return num.toFixed(5);
   if (num < 1) return num.toFixed(4);
   if (num < 100) return num.toFixed(3);
   return num.toFixed(2);
+}
+
+/**
+ * Format token balance with proper decimals
+ */
+export function formatToken(balance: string | bigint, decimals: number): string {
+  const value = typeof balance === "string" ? BigInt(balance) : balance;
+  const formatted = formatUnits(value, decimals);
+  const num = parseFloat(formatted);
+
+  if (num === 0) return "0";
+  if (num < 0.0001) return "<0.0001";
+  if (num < 0.01) return num.toFixed(5);
+  if (num < 1) return num.toFixed(4);
+  if (num < 100) return num.toFixed(3);
+  if (num < 10000) return num.toFixed(2);
+  return num.toFixed(0);
 }
 
 export function formatUSD(value: number | undefined): string {
