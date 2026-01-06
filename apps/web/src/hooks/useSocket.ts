@@ -80,8 +80,9 @@ export function useTxStatus(txHash: string | undefined) {
   useEffect(() => {
     if (!txHash) return;
 
+    const currentTxHash = txHash;
     function onTxStatus(update: TxStatusUpdate) {
-      if (update.txHash.toLowerCase() === txHash.toLowerCase()) {
+      if (update.txHash.toLowerCase() === currentTxHash.toLowerCase()) {
         setStatus(update);
       }
     }

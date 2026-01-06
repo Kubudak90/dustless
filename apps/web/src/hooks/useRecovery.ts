@@ -137,7 +137,7 @@ export function useRecover() {
           // Switch chain if needed
           if (chain?.id !== step.chainId) {
             setStatus("switching");
-            await switchChainAsync({ chainId: step.chainId });
+            await switchChainAsync({ chainId: step.chainId as any });
           }
 
           // Send transaction

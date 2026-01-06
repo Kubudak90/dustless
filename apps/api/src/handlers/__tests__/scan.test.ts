@@ -64,8 +64,12 @@ describe('POST /scan', () => {
     if (body.balances.length > 0) {
       const balance = body.balances[0];
       expect(balance).toHaveProperty('chainId');
-      expect(balance).toHaveProperty('wei');
-      expect(balance).toHaveProperty('eth');
+      expect(balance).toHaveProperty('tokenAddress');
+      expect(balance).toHaveProperty('symbol');
+      expect(balance).toHaveProperty('name');
+      expect(balance).toHaveProperty('decimals');
+      expect(balance).toHaveProperty('balance');
+      expect(balance).toHaveProperty('ok');
     }
   });
 
