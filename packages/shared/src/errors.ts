@@ -44,23 +44,37 @@ export class InsufficientBalanceError extends DustlessError {
 }
 
 /**
- * Thrown when no bridge routes are available for a pair
+ * Thrown when no bridge routes or swap routes are available
  */
 export class NoRoutesFoundError extends DustlessError {
-  constructor(fromChainId: number, toChainId: number, reasons?: string[]) {
+  constructor(fromChainId: number, toChainId: number, operation: 'bridge' | 'swap' = 'bridge', reasons?: string[]) {
+    const message = operation === 'swap'
+      ? 'No swap routes available for this token pair'
+      : 'No bridge routes available for this chain pair';
+
+    const defaultReasons = operation === 'swap'
+      ? [
+          'Unsupported token pair',
+          'Amount too small',
+          'Insufficient liquidity',
+          'DEX temporarily unavailable',
+        ]
+      : [
+          'Unsupported chain pair',
+          'Amount too small',
+          'Insufficient liquidity',
+          'Bridge temporarily unavailable',
+        ];
+
     super(
-      'No bridge routes available for this chain pair',
+      message,
       'NO_ROUTES_FOUND',
       404,
       {
         fromChainId,
         toChainId,
-        possibleReasons: reasons ?? [
-          'Unsupported chain pair',
-          'Amount too small',
-          'Insufficient liquidity',
-          'Bridge temporarily unavailable',
-        ],
+        operation,
+        possibleReasons: reasons ?? defaultReasons,
       },
       true // Retryable - might work later
     );

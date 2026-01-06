@@ -32,6 +32,10 @@ const envSchema = z.object({
   LIFI_API_KEY: z.string().min(10, 'LIFI_API_KEY must be at least 10 characters').optional(),
   LIFI_BASE_URL: z.string().url().optional(),
 
+  // DEX Aggregator API (Optional)
+  ODOS_BASE_URL: z.string().url().optional(),
+  ODOS_API_KEY: z.string().optional(),
+
   // Price Oracle API Keys (Optional)
   COINGECKO_API_KEY: z.string().optional(),
   COINMARKETCAP_API_KEY: z.string().optional(),

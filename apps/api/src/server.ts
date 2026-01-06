@@ -5,7 +5,7 @@ import helmet from "@fastify/helmet";
 import compress from "@fastify/compress";
 import { Server } from "socket.io";
 import { env, isDevelopment, isProduction } from "./config/env.js";
-import { scanHandler, quoteHandler, buildHandler } from "./handlers/index.js";
+import { scanHandler, quoteHandler, buildHandler, swapHandler, swapBuildHandler } from "./handlers/index.js";
 import { checkAllChainsHealth } from "./services/rpcHealth.js";
 import type { ServerToClientEvents, ClientToServerEvents } from "./socket.js";
 import { DustlessError } from "@dustless/shared";
@@ -150,6 +150,25 @@ app.post("/build", {
     }
   }
 }, buildHandler);
+
+// Swap endpoints for DEX aggregation (token → ETH conversion)
+app.post("/swap", {
+  config: {
+    rateLimit: {
+      max: 20, // 20 swap quote requests per minute
+      timeWindow: '1 minute',
+    }
+  }
+}, swapHandler);
+
+app.post("/swap/build", {
+  config: {
+    rateLimit: {
+      max: 15, // 15 swap build requests per minute
+      timeWindow: '1 minute',
+    }
+  }
+}, swapBuildHandler);
 
 // Error handler
 app.setErrorHandler((error, request, reply) => {

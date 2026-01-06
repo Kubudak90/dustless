@@ -58,7 +58,7 @@ export interface QuoteStep {
 }
 
 export interface Quote {
-  provider: "lifi" | "socket";
+  provider: "lifi" | "socket" | "odos";
   routeId: string;
   steps: QuoteStep[];
   estimatedReceivedWei: string;
@@ -90,6 +90,46 @@ export interface TxStep {
 export interface BuildResponse {
   steps: TxStep[];
   warnings?: string[];
+}
+
+// ============ Swap ============
+
+export interface Token {
+  address: string; // Token contract address, or NATIVE_TOKEN_ADDRESS for native ETH
+  symbol: string;
+  name: string;
+  decimals: number;
+  chainId: number;
+}
+
+export interface SwapRequest {
+  chainId: number;
+  fromToken: string; // Token address or NATIVE_TOKEN_ADDRESS
+  toToken: string;   // Token address or NATIVE_TOKEN_ADDRESS
+  amount: string;    // Amount in token's smallest unit (wei for ETH)
+  userAddress: string;
+  slippage?: number; // Slippage percentage (default: 3)
+}
+
+export interface SwapQuote {
+  provider: "odos";
+  pathId: string; // Odos pathId for assembling transaction
+  fromToken: Token;
+  toToken: Token;
+  fromAmount: string;
+  toAmount: string;
+  estimatedGas?: string;
+  estimatedGasUsd?: number;
+  priceImpact?: number; // Percentage
+}
+
+export interface SwapResponse {
+  quotes: SwapQuote[];
+}
+
+export interface SwapBuildRequest {
+  quote: SwapQuote;
+  userAddress: string;
 }
 
 // ============ Execution Status ============
