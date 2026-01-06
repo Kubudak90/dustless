@@ -1,0 +1,20 @@
+{
+  "name": "dustless",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel dev",
+    "dev:api": "pnpm --filter @dustless/api dev",
+    "dev:web": "pnpm --filter @dustless/web dev",
+    "build": "pnpm --parallel build",
+    "lint": "pnpm --parallel lint",
+    "typecheck": "pnpm --parallel typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=8"
+  }
+}
