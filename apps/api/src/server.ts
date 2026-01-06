@@ -1,6 +1,8 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import { Server } from "socket.io";
+import { env, isDevelopment } from "./config/env.js";
 import { scanHandler, quoteHandler, buildHandler } from "./handlers/index.js";
 import { checkAllChainsHealth } from "./services/rpcHealth.js";
 import type { ServerToClientEvents, ClientToServerEvents } from "./socket.js";
@@ -10,21 +12,42 @@ import "./providers/index.js";
 
 const app = Fastify({
   logger: {
-    level: process.env.LOG_LEVEL ?? "info",
-    transport: process.env.NODE_ENV === "development"
+    level: env.LOG_LEVEL,
+    transport: isDevelopment
       ? { target: "pino-pretty", options: { colorize: true } }
       : undefined,
   },
 });
 
 // CORS origins
-const corsOrigins = process.env.CORS_ORIGIN?.split(",") ?? ["http://localhost:3000", "http://localhost:3001"];
+const corsOrigins = env.CORS_ORIGIN?.split(",") ?? ["http://localhost:3000", "http://localhost:3001"];
 
 // Register CORS
 await app.register(cors, {
   origin: corsOrigins,
   methods: ["GET", "POST", "OPTIONS"],
   credentials: true,
+});
+
+// Register Rate Limiting
+await app.register(rateLimit, {
+  global: true,
+  max: 100, // 100 requests
+  timeWindow: '15 minutes',
+  cache: 10000, // Cache up to 10k IPs
+  allowList: ['127.0.0.1'], // Localhost for testing
+  keyGenerator: (req) => {
+    // Use forwarded IP if behind proxy, otherwise use connection IP
+    return req.headers['x-forwarded-for']?.toString().split(',')[0] || req.ip;
+  },
+  errorResponseBuilder: (_req, context) => {
+    return {
+      error: 'RATE_LIMIT_EXCEEDED',
+      message: `Too many requests. Please try again in ${Math.ceil(context.ttl / 1000)} seconds.`,
+      retryAfter: Math.ceil(context.ttl / 1000),
+    };
+  },
+  skipOnError: false, // Don't skip rate limiting on errors
 });
 
 // Health check
@@ -44,10 +67,33 @@ app.get("/health/chains", async () => {
   };
 });
 
-// Main API endpoints
-app.post("/scan", scanHandler);
-app.post("/quote", quoteHandler);
-app.post("/build", buildHandler);
+// Main API endpoints with endpoint-specific rate limits
+app.post("/scan", {
+  config: {
+    rateLimit: {
+      max: 10, // 10 scans per minute
+      timeWindow: '1 minute',
+    }
+  }
+}, scanHandler);
+
+app.post("/quote", {
+  config: {
+    rateLimit: {
+      max: 20, // 20 quote requests per minute
+      timeWindow: '1 minute',
+    }
+  }
+}, quoteHandler);
+
+app.post("/build", {
+  config: {
+    rateLimit: {
+      max: 15, // 15 build requests per minute
+      timeWindow: '1 minute',
+    }
+  }
+}, buildHandler);
 
 // Error handler
 app.setErrorHandler((error, _request, reply) => {
@@ -57,7 +103,7 @@ app.setErrorHandler((error, _request, reply) => {
   if (error.name === "ZodError") {
     return reply.status(400).send({
       error: "Validation error",
-      details: error.issues,
+      details: (error as any).issues,
     });
   }
 
@@ -68,8 +114,8 @@ app.setErrorHandler((error, _request, reply) => {
 });
 
 // Start server with Socket.IO
-const port = Number(process.env.PORT ?? 4000);
-const host = process.env.HOST ?? "0.0.0.0";
+const port = Number(env.PORT);
+const host = env.HOST;
 
 const start = async () => {
   try {

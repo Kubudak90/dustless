@@ -1,11 +1,12 @@
 import { CHAINS, type ChainConfig } from "@dustless/shared";
+import { env } from "./env.js";
 
 /**
  * Environment-aware chain config
- * Overrides default RPC URLs with environment variables when available
+ * Overrides default RPC URLs with validated environment variables
  */
 
-const RPC_ENV_MAP: Record<number, string> = {
+const RPC_ENV_MAP: Record<number, keyof typeof env> = {
   8453: "RPC_BASE",
   42161: "RPC_ARBITRUM",
   81457: "RPC_BLAST",
@@ -23,9 +24,9 @@ export function getChainConfig(chainId: number): ChainConfig {
     throw new Error(`Unknown chainId: ${chainId}`);
   }
 
-  // Check for env override
+  // Check for validated env override
   const envKey = RPC_ENV_MAP[chainId];
-  const envRpc = envKey ? process.env[envKey] : undefined;
+  const envRpc = envKey ? env[envKey] as string | undefined : undefined;
 
   if (envRpc) {
     return {

@@ -2,8 +2,9 @@ import { request } from "undici";
 import type { BridgeProvider } from "./BridgeProvider.js";
 import type { Quote, QuoteRequest, BuildRequest, TxStep } from "@dustless/shared";
 import { NATIVE_TOKEN_ADDRESS } from "@dustless/shared";
+import { env } from "../config/env.js";
 
-const LIFI_BASE_URL = process.env.LIFI_BASE_URL ?? "https://li.quest/v1";
+const LIFI_BASE_URL = env.LIFI_BASE_URL ?? "https://li.quest/v1";
 
 /**
  * LI.FI Bridge Provider

@@ -2,9 +2,10 @@ import { request } from "undici";
 import type { BridgeProvider } from "./BridgeProvider.js";
 import type { Quote, QuoteRequest, BuildRequest, TxStep } from "@dustless/shared";
 import { NATIVE_TOKEN_ADDRESS } from "@dustless/shared";
+import { env } from "../config/env.js";
 
-const SOCKET_BASE_URL = process.env.SOCKET_BASE_URL ?? "https://api.socket.tech/v2";
-const SOCKET_API_KEY = process.env.SOCKET_API_KEY;
+const SOCKET_BASE_URL = "https://api.socket.tech/v2";
+const SOCKET_API_KEY = env.SOCKET_API_KEY;
 
 /**
  * Socket (Bungee) Bridge Provider

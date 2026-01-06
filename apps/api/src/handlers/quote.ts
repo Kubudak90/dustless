@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { registry } from "../providers/index.js";
 import type { QuoteResponse, Quote } from "@dustless/shared";
+import { NoRoutesFoundError } from "@dustless/shared";
 
 const QuoteRequestSchema = z.object({
   fromChainId: z.number().int().positive(),
@@ -47,13 +48,7 @@ export async function quoteHandler(
   });
 
   if (quotes.length === 0) {
-    return reply.send({
-      quotes: [],
-      // No routes found - could be due to:
-      // - Unsupported chain pair
-      // - Amount too small
-      // - Insufficient liquidity
-    });
+    throw new NoRoutesFoundError(body.fromChainId, body.toChainId);
   }
 
   // Sort by best output (highest received amount first)
