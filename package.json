@@ -1,0 +1,23 @@
+{
+  "name": "dustless",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel dev",
+    "dev:api": "pnpm --filter @dustless/api dev",
+    "dev:web": "pnpm --filter @dustless/web dev",
+    "build": "pnpm --parallel build",
+    "lint": "pnpm --parallel lint",
+    "typecheck": "pnpm --parallel typecheck"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.16",
+    "@vitest/ui": "^4.0.16",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.16"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=8"
+  }
+}
